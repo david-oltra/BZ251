@@ -5,25 +5,50 @@
 #include <driver/gpio.h>
 #include <driver/uart.h>
 
+
+typedef struct {
+    uart_port_t uartNum;    /* UART port number, can be UART_NUM_0 ~ (UART_NUM_MAX -1) */
+    uint8_t hasGps;         /* 1 Enable - 0 Disable */
+    uint8_t hasGlonass;     /* 1 Enable - 0 Disable */
+    uint8_t hasGalileo;     /* 1 Enable - 0 Disable */
+    uint8_t hasBeidou;      /* 1 Enable - 0 Disable */
+    uint8_t dynmodel;       /** 0 Portable
+                                2 Stationary
+                                3 Pedestrian
+                                4 Automotive
+                                5 Sea
+                                6 Airborne with <1g acceleration
+                                7 Airborne with <2g acceleration
+                                8 Airborne with <4g acceleration
+                                9 Wrist-worn watch (not available in all products)
+                                10 Motorbike (not available in all products)
+                                11 Robotic lawn mower (not available in all products)
+                            */
+    uint8_t timeZone;       /* UTC */
+} Bz251Config;
+
+typedef struct {
+    float latitude;     /* dd.mmmmmm */
+    float longitude;    /* dd.mmmmmm */
+    float altitude;     /* Antenna altitude above/below mean sea level (meters) */
+    uint8_t year;       /* yy */
+    uint8_t month;      /* mm */
+    uint8_t day;        /* dd */
+    uint8_t hour;       /* hh */
+    uint8_t minute;     /* mm */
+    float speed_Kn;     /* Speed over ground, knots */
+    uint8_t satellites; /* Number of satellites in use. May be different to the number in view */
+} Bz251Data;
+
 class Bz251
 {
     public:
 
-        struct Bz251Data {
-            float latitude;
-            float longitude;
-            float altitude;
-            uint8_t year;
-            uint8_t month;
-            uint8_t day;
-            uint8_t hour;
-            uint8_t minute;
-        };
-        Bz251Data data;
-        
+        void init(Bz251Config config);
 
-        void init(bz251Config config);
+        uint8_t getData(Bz251Data &dev);
 
+        uint8_t read(void);
         uint8_t getPosition(float &latitude, float &longitude);
         uint8_t getAltitude(float &altitude);
         uint8_t getTime(uint8_t &hour, uint8_t &minute);
@@ -73,7 +98,7 @@ class Bz251
                                         7 - Manual input mode (fixed position)
                                         8 - Simulator mode
                                         9 - WAAS (SBAS)1 */
-            uint8_t satellites;    /* Number of satellites in use */
+            uint8_t satellites;     /* Number of satellites in use. May be different to the number in view */
             float hdop;             /* Horizontal dilution of precision */
             float altitude;         /* Antenna altitude above/below mean sea level */
             uint8_t a_units;        /* Units of antenna altitude (M = metres) */       
@@ -84,13 +109,13 @@ class Bz251
         };
         ggaData gga;
         
-        uint8_t read(void);
         uint8_t getWeekday(uint8_t day, uint8_t month, uint8_t year);
         uint8_t getFirstDay(uint8_t year);
         uint8_t getLastDay(uint8_t year);
         uint8_t addTimeZone(uint8_t &hour, uint8_t &day, uint8_t &month, uint8_t &year);
         uint8_t sync(uint32_t &rawTime, uint32_t &rawDate); 
 
+        uart_port_t uartNum;
         uint8_t timeZone = 1;
 
         void calculateChecksum(uint8_t *message, uint8_t length);

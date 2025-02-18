@@ -23,6 +23,7 @@ static TaskHandle_t core_A = NULL;
 static TaskHandle_t core_B = NULL;
 
 Bz251 bz251;
+Bz251Data bz251Data;
 
 // PINOUT UART
 #define UART_NUM UART_NUM_2
@@ -57,28 +58,13 @@ esp_err_t uart_init(void)
 
 esp_err_t bz251_init(void)
 {
-    bz251.configSetValue(CFG_RATE_TIMEREF, 0x04); // Align measurements to Galileo time
-    vTaskDelay(pdMS_TO_TICKS(500));
-    bz251.configSetValue(CFG_NAVSPG_UTCSTANDARD, 0x05); // UTC as combined from multiple European laboratories; derived from Galileo time
-    vTaskDelay(pdMS_TO_TICKS(500));
-    bz251.configSetValue(CFG_NAVSPG_DYNMODEL,0x06); // Airborne with <1g acceleration
-    vTaskDelay(pdMS_TO_TICKS(500));
-    bz251.configSetValue(CFG_SIGNAL_SBAS_ENA,0); // Disable SBAS for GPS disable
-    vTaskDelay(pdMS_TO_TICKS(500));
-    bz251.configSetValue(CFG_SIGNAL_QZSS_ENA,0); // Disable QZSS for GPS disable
-    vTaskDelay(pdMS_TO_TICKS(500));
-    bz251.configSetValue(CFG_SIGNAL_GPS_ENA,0); // GPS disable
-    vTaskDelay(pdMS_TO_TICKS(500));
-    bz251.configSetValue(CFG_SIGNAL_BDS_ENA,0); // BeiDou disable
-    vTaskDelay(pdMS_TO_TICKS(500));
+    Bz251Config conf;
+        conf.uartNum = UART_NUM_2;
+        conf.timeZone = 1;
+        conf.hasGps = 0;
+        conf.dynmodel = 6;
 
-
-    // bz251.configSetValue(CFG_MSGOUT_NMEA_ID_GGA_UART1, 0);
-    bz251.configSetValue(CFG_MSGOUT_NMEA_ID_GSA_UART1, 0);
-    bz251.configSetValue(CFG_MSGOUT_NMEA_ID_VTG_UART1, 0);
-    bz251.configSetValue(CFG_MSGOUT_NMEA_ID_GSV_UART1, 0);
-    bz251.configSetValue(CFG_MSGOUT_NMEA_ID_GLL_UART1, 0);
-    // bz251.configSetValue(CFG_MSGOUT_NMEA_ID_RMC_UART1, 0);
+    bz251.init(conf);
 
     return ESP_OK;
 }
@@ -88,8 +74,11 @@ void coreAThread(void *arg)
 {
     ESP_LOGW(TAG, "Starting CORE A");  
 
+    
+
     for(;;)
     {
+        bz251.getData(bz251Data);
         bz251.getPosition(bz251.data.latitude, bz251.data.longitude);
         bz251.getAltitude(bz251.data.altitude);
         bz251.getDate(bz251.data.day, bz251.data.month, bz251.data.year);

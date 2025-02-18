@@ -3,27 +3,79 @@
 #include <esp_log.h>
 #include <driver/uart.h>
 #include <sstream>
+#include <string.h>
 
 using namespace std;
 
 static const char *TAG = "BZ251";
 
+void Bz251::init(Bz251Config config)
+{
+    uartNum = config.uartNum;
+    timeZone = config.timeZone;
+    if(config.hasGps!=CFG_SIGNAL_GPS_ENA_DEFAULT)
+    {
+        configSetValue(CFG_RATE_TIMEREF, 0x04);         // Align measurements to Galileo time
+        configSetValue(CFG_NAVSPG_UTCSTANDARD, 0x05);   // UTC as combined from multiple European laboratories; derived from Galileo time
+        configSetValue(CFG_SIGNAL_SBAS_ENA,0);          // Disable SBAS for GPS disable
+        configSetValue(CFG_SIGNAL_QZSS_ENA,0);          // Disable QZSS for GPS disable
+        configSetValue(CFG_SIGNAL_GPS_ENA,0);           // GPS disable
+    }
+
+    if(config.hasGalileo!=CFG_SIGNAL_GAL_ENA_DEFAULT)
+    {
+        configSetValue(CFG_SIGNAL_GAL_ENA,0); // Galileo disable
+    }
+
+    if(config.hasBeidou!=CFG_SIGNAL_BDS_ENA_DEFAULT)
+    {
+        configSetValue(CFG_SIGNAL_BDS_ENA,1); // BeiDou enable
+    }
+
+    if(config.hasGlonass!=CFG_SIGNAL_GLO_ENA_DEFAULT)
+    {
+        configSetValue(CFG_SIGNAL_GLO_ENA,1); // Glonass enable
+    }
+
+    if(config.dynmodel!=CFG_NAVSPG_DYNMODEL_DEFAULT)
+    {
+        configSetValue(CFG_NAVSPG_DYNMODEL,config.dynmodel);
+    }
+
+    configSetValue(CFG_MSGOUT_NMEA_ID_GSA_UART1, 0);    // Disable nmea gsa
+    configSetValue(CFG_MSGOUT_NMEA_ID_VTG_UART1, 0);    // Disable nmea vtg
+    configSetValue(CFG_MSGOUT_NMEA_ID_GSV_UART1, 0);    // Disable nmea gsc
+    configSetValue(CFG_MSGOUT_NMEA_ID_GLL_UART1, 0);    // Disable nmea gll
+}
+
+uint8_t Bz251::getData(Bz251Data &dev)
+{
+    read();
+    getPosition(dev.latitude, dev.longitude);
+    getAltitude(dev.altitude);
+    getTime(dev.hour, dev.minute);
+    getDate(dev.day, dev.month, dev.year);
+
+}
+
 uint8_t Bz251::read(void)
 {
-    uint8_t* data = (uint8_t*) malloc(1024+1);
+    // uint8_t* readData = (uint8_t*) malloc(1024+1);
+    uint8_t readData[1025];
+    memset(readData, 0, 1025);
 
-    const int rxBytes = uart_read_bytes(UART_NUM_2, data, 1024,pdMS_TO_TICKS(500));
+    const int rxBytes = uart_read_bytes(uartNum, readData, 1024,pdMS_TO_TICKS(500));
     if (rxBytes > 0) {
-        data[rxBytes] = 0;
+        readData[rxBytes] = 0;
     }
 
     string GXRMC[13];
-    string GXGGA[13];
+    string GXGGA[15];
     uint8_t pos = 0;
     string data_GXRMC;
     string data_GXGGA;
-    string gnss_string = string((char *)data);
-    free(data);
+    string gnss_string = string((char *)readData);
+    // free(readData);
 
     stringstream gnss_string_to_stream(gnss_string);
     
@@ -63,7 +115,7 @@ uint8_t Bz251::read(void)
      * N = 78 S = 83
      * E = 69 W = 87
      */
-    if( GXRMC[2][0] == 86)
+    if( GXRMC[2][0] == 86) // 'V'
     {
         ESP_LOGW(TAG,"RMC No signal");
     }
@@ -110,7 +162,6 @@ uint8_t Bz251::read(void)
 
 uint8_t Bz251::getPosition(float &latitude, float &longitude)
 {
-    read();
     if( this->rmc.pos_status == 65)
     {
         latitude = this->rmc.latitude;
@@ -124,7 +175,6 @@ uint8_t Bz251::getPosition(float &latitude, float &longitude)
 
 uint8_t Bz251::getAltitude(float &altitude)
 {
-    read();
     if( this->rmc.pos_status == 65)
     {
         altitude = this->gga.altitude;
@@ -143,9 +193,8 @@ uint8_t Bz251::getWeekday(uint8_t day, uint8_t month, uint8_t year)
         return (year + year/4 - year/100 + year/400 + t[month-1] + day) % 7;
 }
 
-uint8_t Bz251::getFirstDay(uint8_t year)
+uint8_t Bz251::getFirstDay(uint8_t year)    /* last sunday of march */
 {
-    /* ultimo domingo Marzo*/
     for (uint8_t day=31; day>0; day--)
         {
             if (getWeekday(day, 3, year) == 0)
@@ -156,9 +205,8 @@ uint8_t Bz251::getFirstDay(uint8_t year)
     return 0;
 }
 
-uint8_t Bz251::getLastDay(uint8_t year)
+uint8_t Bz251::getLastDay(uint8_t year)     /* last sunday of october */
 {
-    /* ultimo domingo Octubre*/
     for (uint8_t day=31; day>0; day--)
         {
             if (getWeekday(day, 10, year) == 0)
@@ -210,7 +258,7 @@ uint8_t Bz251::sync(uint32_t &rawTime, uint32_t &rawDate)
     uint8_t month = stoi(strRawDate.substr(2,2));
     uint8_t year = stoi(strRawDate.substr(4,2));
 
-    for (uint8_t i=0; i<timeZone; i++)
+    for (uint8_t i=0; i<this->timeZone; i++)
     {
         addTimeZone(hour, day, month, year);
     }
@@ -231,7 +279,6 @@ uint8_t Bz251::sync(uint32_t &rawTime, uint32_t &rawDate)
 
 uint8_t Bz251::getTime(uint8_t &hour, uint8_t &minute)
 {
-    read();
     if( this->rmc.pos_status == 65)
     {
         sync(this->rmc.utc, this->rmc.date);
@@ -252,7 +299,6 @@ uint8_t Bz251::getTime(uint8_t &hour, uint8_t &minute)
 
 uint8_t Bz251::getDate(uint8_t &day, uint8_t &month, uint8_t &year)
 {
-    read();
     if( this->rmc.pos_status == 65)
     {
         sync(this->rmc.utc, this->rmc.date);
@@ -309,7 +355,7 @@ void Bz251::reset() {
     };
 
     calculateChecksum(ubx_reset_cmd, sizeof(ubx_reset_cmd));
-    uart_write_bytes(UART_NUM_2, (const char*)ubx_reset_cmd, sizeof(ubx_reset_cmd));
+    uart_write_bytes(uartNum, (const char*)ubx_reset_cmd, sizeof(ubx_reset_cmd));
 
     ESP_LOGE(TAG, "Restart");
 }
@@ -327,7 +373,7 @@ void Bz251::factoryReset() {
     };
 
     calculateChecksum(ubx_cfg_cfg_factory_reset, sizeof(ubx_cfg_cfg_factory_reset));
-    uart_write_bytes(UART_NUM_2, (const char*)ubx_cfg_cfg_factory_reset, sizeof(ubx_cfg_cfg_factory_reset));
+    uart_write_bytes(uartNum, (const char*)ubx_cfg_cfg_factory_reset, sizeof(ubx_cfg_cfg_factory_reset));
 }
 
 void Bz251::configSetValue(uint64_t key, uint8_t value)
@@ -344,7 +390,7 @@ void Bz251::configSetValue(uint64_t key, uint8_t value)
     };
 
     calculateChecksum(ubx_cfg, sizeof(ubx_cfg));
-    uart_write_bytes(UART_NUM_2, (const char*)ubx_cfg, sizeof(ubx_cfg));
+    uart_write_bytes(uartNum, (const char*)ubx_cfg, sizeof(ubx_cfg));
 }
 
 void Bz251::configGetValue(uint64_t key)
@@ -359,7 +405,7 @@ void Bz251::configGetValue(uint64_t key)
     };
 
     calculateChecksum(ubx_cfg, sizeof(ubx_cfg));
-    uart_write_bytes(UART_NUM_2, (const char*)ubx_cfg, sizeof(ubx_cfg));
+    uart_write_bytes(uartNum, (const char*)ubx_cfg, sizeof(ubx_cfg));
 }
 
 void Bz251::setValueFlash(uint64_t key, uint8_t value)
@@ -376,5 +422,5 @@ void Bz251::setValueFlash(uint64_t key, uint8_t value)
     };
 
     calculateChecksum(ubx_cfg, sizeof(ubx_cfg));
-    uart_write_bytes(UART_NUM_2, (const char*)ubx_cfg, sizeof(ubx_cfg));
+    uart_write_bytes(uartNum, (const char*)ubx_cfg, sizeof(ubx_cfg));
 }
