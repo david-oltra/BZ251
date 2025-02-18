@@ -5,13 +5,6 @@
 #include <driver/gpio.h>
 #include <driver/uart.h>
 
-
-typedef struct {
-    uart_port_t uartNum;
-    gpio_num_t tx;
-    gpio_num_t rx;
-} bz251Config;
-
 class Bz251
 {
     public:
