@@ -21,6 +21,7 @@ extern "C" void app_main();
 
 static TaskHandle_t core_A = NULL;
 static TaskHandle_t core_B = NULL;
+static TaskHandle_t bz251_task = NULL;
 
 Bz251 bz251;
 Bz251Data bz251Data;
@@ -56,67 +57,75 @@ esp_err_t uart_init(void)
     return ESP_OK;
 }
 
-esp_err_t bz251_init(void)
+uint8_t bz251_init(void)
 {
     Bz251Config conf;
         conf.uartNum = UART_NUM_2;
-        conf.timeZone = 1;
-        conf.hasGps = 0;
-        conf.dynmodel = 6;
+        conf.timeZone = 1;  // Timezone UTC +1
+        conf.hasGps = 0;    // Disable GPS
+        conf.dynmodel = 6;  // Airborne with <1g acceleration
 
     bz251.init(conf);
 
-    return ESP_OK;
+    return 0;
 }
 
+void bz251Task(void *arg)
+{
+    for(;;)
+    {
+        bz251.read();
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
 
 void coreAThread(void *arg)
 {
     ESP_LOGW(TAG, "Starting CORE A");  
 
-    
-
     for(;;)
     {
         bz251.getData(bz251Data);
-        bz251.getPosition(bz251.data.latitude, bz251.data.longitude);
-        bz251.getAltitude(bz251.data.altitude);
-        bz251.getDate(bz251.data.day, bz251.data.month, bz251.data.year);
-        bz251.getTime(bz251.data.hour, bz251.data.minute);
+        // bz251.getPosition(bz251Data.latitude, bz251Data.longitude);
+        // bz251.getAltitude(bz251Data.altitude);
+        // bz251.getDate(bz251Data.day, bz251Data.month, bz251Data.year);
+        // bz251.getTime(bz251Data.hour, bz251Data.minute);
 
-        ESP_LOGI(TAG, "\nlatitude\t%.8f\nlongitude\t%.8f\naltirude\t%.8f\ndate\t%u/%u/%u\ntime\t%u:%u",
-                        bz251.data.latitude,
-                        bz251.data.longitude,
-                        bz251.data.altitude,
-                        bz251.data.day,bz251.data.month, bz251.data.year,
-                        bz251.data.hour, bz251.data.minute);
+        ESP_LOGI(TAG, "\nlatitude\t%.8f\nlongitude\t%.8f\naltitude\t%.2f\nspeed\t%.8f\nsats\t%u\ndate\t%u/%u/%u\ntime\t%u:%u",
+                        bz251Data.latitude,
+                        bz251Data.longitude,
+                        bz251Data.altitude,
+                        bz251Data.speedKmh,
+                        bz251Data.satellites,
+                        bz251Data.day,bz251Data.month, bz251Data.year,
+                        bz251Data.hour, bz251Data.minute
+                    );
     
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
-
 }
 
 void coreBThread(void *arg)
 {
     ESP_LOGW(TAG, "Starting CORE B");
 
-    uint8_t* data = (uint8_t*) malloc(1024+1);
+    // uint8_t* data = (uint8_t*) malloc(1024+1);
 
     for(;;){
-        // bz251_get_value(CFG_SIGNAL_GPS_ENA);
-        const int rxBytes = uart_read_bytes(UART_NUM, data, 1024,pdMS_TO_TICKS(100));
-        if (rxBytes > 0) {
-            data[rxBytes] = 0;
-            ESP_LOGI(TAG, "Read %d bytes: \n%s", rxBytes, data);
-            // ESP_LOG_BUFFER_HEX(TAG, data, rxBytes);
-        }
-        if (data[0] == 0xB5 && data[2] == 0x06){
-            ESP_LOGE(TAG, "%x %x %x %x",data[0], data[1], data[2], data[3]);
-            ESP_LOG_BUFFER_HEX(TAG, data, data[4]+6);
-        }
+    //     // bz251_get_value(CFG_SIGNAL_GPS_ENA);
+    //     const int rxBytes = uart_read_bytes(UART_NUM, data, 1024,pdMS_TO_TICKS(100));
+    //     if (rxBytes > 0) {
+    //         data[rxBytes] = 0;
+    //         ESP_LOGI(TAG, "Read %d bytes: \n%s", rxBytes, data);
+    //         // ESP_LOG_BUFFER_HEX(TAG, data, rxBytes);
+    //     }
+    //     if (data[0] == 0xB5 && data[2] == 0x06){
+    //         ESP_LOGE(TAG, "%x %x %x %x",data[0], data[1], data[2], data[3]);
+    //         ESP_LOG_BUFFER_HEX(TAG, data, data[4]+6);
+    //     }
     
         vTaskDelay(pdMS_TO_TICKS(1000));
-    } 
+    }
 }
 
 
@@ -130,7 +139,7 @@ void app_main(void)
     if (bz251_init() == ESP_OK) {ESP_LOGI(TAG,"Config UART completed");}
     else {ESP_LOGE(TAG,"Config UART failed");}
 
-
+    xTaskCreatePinnedToCore(bz251Task, "bz251_task", 4096, NULL, 1, &bz251_task, 1);
     xTaskCreatePinnedToCore(coreBThread, "core_B", 4096, NULL, 2, &core_B, 1);    
-    xTaskCreatePinnedToCore(coreAThread, "core_A", 4096, NULL, 1, &core_A, 0);
+    xTaskCreatePinnedToCore(coreAThread, "core_A", 4096, NULL, 3, &core_A, 0);
 }

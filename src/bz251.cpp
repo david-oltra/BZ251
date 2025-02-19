@@ -47,22 +47,25 @@ void Bz251::init(Bz251Config config)
     configSetValue(CFG_MSGOUT_NMEA_ID_GSV_UART1, 0);    // Disable nmea gsc
     configSetValue(CFG_MSGOUT_NMEA_ID_GLL_UART1, 0);    // Disable nmea gll
 }
+/* Initial configuration bz251*/
 
 uint8_t Bz251::getData(Bz251Data &dev)
 {
-    read();
     getPosition(dev.latitude, dev.longitude);
     getAltitude(dev.altitude);
     getTime(dev.hour, dev.minute);
     getDate(dev.day, dev.month, dev.year);
+    getSpeed(dev.speedKmh);
 
+    return 0;
 }
+/* Set data in Bz251Data struct */
 
 uint8_t Bz251::read(void)
 {
     // uint8_t* readData = (uint8_t*) malloc(1024+1);
-    uint8_t readData[1025];
-    memset(readData, 0, 1025);
+    uint8_t readData[1024];
+    memset(readData, 0, 1024);
 
     const int rxBytes = uart_read_bytes(uartNum, readData, 1024,pdMS_TO_TICKS(500));
     if (rxBytes > 0) {
@@ -110,55 +113,35 @@ uint8_t Bz251::read(void)
     }
     pos = 0;
 
-    /**
-     * V = 86 A = 65
-     * N = 78 S = 83
-     * E = 69 W = 87
-     */
-    if( GXRMC[2][0] == 86) // 'V'
-    {
-        ESP_LOGW(TAG,"RMC No signal");
-    }
-    else if( GXRMC[2][0] == 65)
-    {
-        this->rmc.utc = stoi(GXRMC[1].substr(0,6));
-        this->rmc.pos_status = GXRMC[2][0];
-        this->rmc.latitude = stof(GXRMC[3])/100;
-        this->rmc.lat_dir = GXRMC[4][0];
-        this->rmc.longitude = stof(GXRMC[5])/1000;
-        this->rmc.lon_dir = GXRMC[6][0];
-        this->rmc.speed_Kn = stof(GXRMC[7]);
-        if (GXRMC[8]!=""){this->rmc.track_true = stof(GXRMC[8]);}
-        this->rmc.date = stoi(GXRMC[9].substr(0,6));
-        if (GXRMC[10]!=""){this->rmc.mag_var = stof(GXRMC[10]);}
-        this->rmc.var_dir = GXRMC[11][0];
-        this->rmc.mode_ind = GXRMC[12][0];  
-    }
+    if (GXRMC[1]!=""){this->rmc.utc = stoi(GXRMC[1].substr(0,6));}
+    if (GXRMC[2]!=""){this->rmc.pos_status = GXRMC[2][0];}
+    if (GXRMC[3]!=""){this->rmc.latitude = stof(GXRMC[3])/100;}
+    if (GXRMC[4]!=""){this->rmc.lat_dir = GXRMC[4][0];}
+    if (GXRMC[5]!=""){this->rmc.longitude = stof(GXRMC[5])/1000;}
+    if (GXRMC[6]!=""){this->rmc.lon_dir = GXRMC[6][0];}
+    if (GXRMC[7]!=""){this->rmc.speed_Kn = stof(GXRMC[7]);}
+    if (GXRMC[8]!=""){this->rmc.track_true = stof(GXRMC[8]);}
+    if (GXRMC[9]!=""){this->rmc.date = stoi(GXRMC[9].substr(0,6));}
+    if (GXRMC[10]!=""){this->rmc.mag_var = stof(GXRMC[10]);}
+    if (GXRMC[11]!=""){this->rmc.var_dir = GXRMC[11][0];}
+    if (GXRMC[12]!=""){this->rmc.mode_ind = GXRMC[12][0];}  
 
-    if( GXGGA[6][0] == 0)
-    {
-        ESP_LOGW(TAG,"GGA No signal");
-    }
-    else if( GXGGA[6][0] <= 9)
-    {
-        this->gga.utc = stoi(GXGGA[1].substr(0,6));
-        this->gga.latitude = stof(GXGGA[2])/100;
-        this->gga.lat_dir = GXGGA[3][0];
-        this->gga.longitude = stof(GXGGA[4])/1000;
-        this->gga.lon_dir = GXGGA[5][0];
-        this->gga.quality = GXGGA[6][0];
-        this->gga.satellites = stoi(GXGGA[7].substr(0,2));
-        this->gga.hdop = stof(GXGGA[8]);
-        this->gga.altitude = stof(GXGGA[9]);
-        this->gga.a_units = GXGGA[10][0];
-        this->gga.undulation = stof(GXGGA[11]);
-        this->gga.u_units = GXGGA[12][0];
-        this->gga.age = stoi(GXGGA[13].substr(0,2));
-        this->gga.stn_ID = stoi(GXGGA[14].substr(0,3));
-    }
+    if (GXGGA[1]!=""){this->gga.utc = stoi(GXGGA[1].substr(0,6));}
+    if (GXGGA[2]!=""){this->gga.latitude = stof(GXGGA[2])/100;}
+    if (GXGGA[3]!=""){this->gga.lat_dir = GXGGA[3][0];}
+    if (GXGGA[4]!=""){this->gga.longitude = stof(GXGGA[4])/1000;}
+    if (GXGGA[5]!=""){this->gga.lon_dir = GXGGA[5][0];}
+    if (GXGGA[6]!=""){this->gga.quality = GXGGA[6][0];}
+    if (GXGGA[7]!=""){this->gga.satellites = stoi(GXGGA[7].substr(0,2));}
+    if (GXGGA[8]!=""){this->gga.hdop = stof(GXGGA[8]);}
+    if (GXGGA[9]!=""){this->gga.altitude = stof(GXGGA[9]);}
+    if (GXGGA[10]!=""){this->gga.a_units = GXGGA[10][0];}
+    if (GXGGA[11]!=""){this->gga.undulation = stof(GXGGA[11]);}
+    if (GXGGA[12]!=""){this->gga.u_units = GXGGA[12][0];}
 
     return 0;
 }
+/* Read the data received from the bz251 module */
 
 uint8_t Bz251::getPosition(float &latitude, float &longitude)
 {
@@ -172,16 +155,18 @@ uint8_t Bz251::getPosition(float &latitude, float &longitude)
 
     return 0;
 }
+/* Get latitude and longitude */
 
 uint8_t Bz251::getAltitude(float &altitude)
 {
-    if( this->rmc.pos_status == 65)
+    if( this->gga.satellites > 0)
     {
         altitude = this->gga.altitude;
     }
 
     return 0;
 }
+/* Antenna altitude above/below mean sea level */
 
 uint8_t Bz251::getWeekday(uint8_t day, uint8_t month, uint8_t year)
 {
@@ -192,8 +177,9 @@ uint8_t Bz251::getWeekday(uint8_t day, uint8_t month, uint8_t year)
         }
         return (year + year/4 - year/100 + year/400 + t[month-1] + day) % 7;
 }
+/* Get weekday, used for calculate winter/summer time change*/
 
-uint8_t Bz251::getFirstDay(uint8_t year)    /* last sunday of march */
+uint8_t Bz251::getFirstDay(uint8_t year)
 {
     for (uint8_t day=31; day>0; day--)
         {
@@ -204,8 +190,9 @@ uint8_t Bz251::getFirstDay(uint8_t year)    /* last sunday of march */
         }
     return 0;
 }
+ /* Calculate last sunday of march, winter/summer time change*/
 
-uint8_t Bz251::getLastDay(uint8_t year)     /* last sunday of october */
+uint8_t Bz251::getLastDay(uint8_t year)
 {
     for (uint8_t day=31; day>0; day--)
         {
@@ -216,6 +203,7 @@ uint8_t Bz251::getLastDay(uint8_t year)     /* last sunday of october */
         }
     return 0;
 }
+/* Calculate last sunday of october, winter/summer time change* */
 
 uint8_t Bz251::addTimeZone(uint8_t &hour, uint8_t &day, uint8_t &month, uint8_t &year)
 {
@@ -243,6 +231,7 @@ uint8_t Bz251::addTimeZone(uint8_t &hour, uint8_t &day, uint8_t &month, uint8_t 
     }
     return 0;
 }
+/* Update time whith timezone */
 
 uint8_t Bz251::sync(uint32_t &rawTime, uint32_t &rawDate)
 {
@@ -269,13 +258,13 @@ uint8_t Bz251::sync(uint32_t &rawTime, uint32_t &rawDate)
     {
         addTimeZone(hour, day, month, year);
     }
-    // printf("%u:%u - %u-%u-%u",hour, minute, day, month, year);
 
     this->rmc.utc = (hour * 10000) + (minute * 100) + second;
     this->rmc.date = (day * 10000) + (month * 100) + year;
 
     return 0;
 }
+/* Update time and date with TimeZone */
 
 uint8_t Bz251::getTime(uint8_t &hour, uint8_t &minute)
 {
@@ -296,6 +285,7 @@ uint8_t Bz251::getTime(uint8_t &hour, uint8_t &minute)
     }
     return 0;
 }
+/* Get updated time with timezone*/
 
 uint8_t Bz251::getDate(uint8_t &day, uint8_t &month, uint8_t &year)
 {
@@ -316,9 +306,33 @@ uint8_t Bz251::getDate(uint8_t &day, uint8_t &month, uint8_t &year)
             year = stoi(strRawDate.substr(3,2));
         }
     }
+    
     return 0;
 }
+/* Get updated date with timezone*/
 
+uint8_t Bz251::getSpeed(float &speed)
+{
+    if( this->rmc.pos_status == 65)
+    {
+        speed = this->rmc.speed_Kn * 1.852001;
+
+    }
+
+    return 0;
+}
+/* Speed over ground, kmh */
+
+uint8_t Bz251::getSatellites(uint8_t &satellites)
+{
+    if( this->gga.quality > 0)
+    {
+        satellites = this->gga.satellites;
+    }
+
+    return 0;
+}
+/* Number of satellites in use. May be different to the number in view */
 
 uint8_t Bz251::setTimeZone(uint8_t tZone)
 {
@@ -326,6 +340,9 @@ uint8_t Bz251::setTimeZone(uint8_t tZone)
 
     return 0;
 }
+/* Set TimeZona UTC */
+
+
 
 /****************************
  *                          *

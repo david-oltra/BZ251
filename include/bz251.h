@@ -36,7 +36,7 @@ typedef struct {
     uint8_t day;        /* dd */
     uint8_t hour;       /* hh */
     uint8_t minute;     /* mm */
-    float speed_Kn;     /* Speed over ground, knots */
+    float speedKmh;     /* Speed over ground, kms */
     uint8_t satellites; /* Number of satellites in use. May be different to the number in view */
 } Bz251Data;
 
@@ -53,6 +53,8 @@ class Bz251
         uint8_t getAltitude(float &altitude);
         uint8_t getTime(uint8_t &hour, uint8_t &minute);
         uint8_t getDate(uint8_t &day, uint8_t &month, uint8_t &year);
+        uint8_t getSpeed(float &speed);
+        uint8_t getSatellites(uint8_t &satellites);
         uint8_t setTimeZone(uint8_t tZone);
     
         void configSetValue(uint64_t key, uint8_t value);
