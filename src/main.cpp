@@ -57,7 +57,7 @@ esp_err_t uart_init(void)
     return ESP_OK;
 }
 
-uint8_t bz251_init(void)
+esp_err_t bz251_init(void)
 {
     Bz251Config conf;
         conf.uartNum = UART_NUM_2;
@@ -67,7 +67,7 @@ uint8_t bz251_init(void)
 
     bz251.init(conf);
 
-    return 0;
+    return ESP_OK;
 }
 
 void bz251Task(void *arg)
@@ -136,8 +136,8 @@ void app_main(void)
     if (uart_init() == ESP_OK) {ESP_LOGI(TAG,"Config UART completed");}
     else {ESP_LOGE(TAG,"Config UART failed");}
     
-    if (bz251_init() == ESP_OK) {ESP_LOGI(TAG,"Config UART completed");}
-    else {ESP_LOGE(TAG,"Config UART failed");}
+    if (bz251_init() == ESP_OK) {ESP_LOGI(TAG,"Config bz251 completed");}
+    else {ESP_LOGE(TAG,"Config bz251 failed");}
 
     xTaskCreatePinnedToCore(bz251Task, "bz251_task", 4096, NULL, 1, &bz251_task, 1);
     xTaskCreatePinnedToCore(coreBThread, "core_B", 4096, NULL, 2, &core_B, 1);    
