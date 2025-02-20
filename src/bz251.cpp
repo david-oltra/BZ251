@@ -16,30 +16,41 @@ void Bz251::init(Bz251Config config)
     if(config.hasGps!=CFG_SIGNAL_GPS_ENA_DEFAULT)
     {
         configSetValue(CFG_RATE_TIMEREF, 0x04);         // Align measurements to Galileo time
+        vTaskDelay(pdMS_TO_TICKS(500));
         configSetValue(CFG_NAVSPG_UTCSTANDARD, 0x05);   // UTC as combined from multiple European laboratories; derived from Galileo time
+        vTaskDelay(pdMS_TO_TICKS(500));
         configSetValue(CFG_SIGNAL_SBAS_ENA,0);          // Disable SBAS for GPS disable
+        vTaskDelay(pdMS_TO_TICKS(500));
         configSetValue(CFG_SIGNAL_QZSS_ENA,0);          // Disable QZSS for GPS disable
+        vTaskDelay(pdMS_TO_TICKS(500));
         configSetValue(CFG_SIGNAL_GPS_ENA,0);           // GPS disable
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 
     if(config.hasGalileo!=CFG_SIGNAL_GAL_ENA_DEFAULT)
     {
         configSetValue(CFG_SIGNAL_GAL_ENA,0); // Galileo disable
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 
     if(config.hasBeidou!=CFG_SIGNAL_BDS_ENA_DEFAULT)
     {
         configSetValue(CFG_SIGNAL_BDS_ENA,1); // BeiDou enable
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
+    configSetValue(CFG_SIGNAL_BDS_ENA,0); // BeiDou enable
+        vTaskDelay(pdMS_TO_TICKS(500));
 
     if(config.hasGlonass!=CFG_SIGNAL_GLO_ENA_DEFAULT)
     {
         configSetValue(CFG_SIGNAL_GLO_ENA,1); // Glonass enable
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 
     if(config.dynmodel!=CFG_NAVSPG_DYNMODEL_DEFAULT)
     {
         configSetValue(CFG_NAVSPG_DYNMODEL,config.dynmodel);
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 
     configSetValue(CFG_MSGOUT_NMEA_ID_GSA_UART1, 0);    // Disable nmea gsa
@@ -56,6 +67,7 @@ uint8_t Bz251::getData(Bz251Data &dev)
     getTime(dev.hour, dev.minute);
     getDate(dev.day, dev.month, dev.year);
     getSpeed(dev.speedKmh);
+    getSatellites(dev.satellites);
 
     return 0;
 }
@@ -132,7 +144,7 @@ uint8_t Bz251::read(void)
     if (GXGGA[4]!=""){this->gga.longitude = stof(GXGGA[4])/1000;}
     if (GXGGA[5]!=""){this->gga.lon_dir = GXGGA[5][0];}
     if (GXGGA[6]!=""){this->gga.quality = GXGGA[6][0];}
-    if (GXGGA[7]!=""){this->gga.satellites = stoi(GXGGA[7].substr(0,2));}
+    if (GXGGA[7]!=""){this->gga.satellites = stoi(GXGGA[7]);}
     if (GXGGA[8]!=""){this->gga.hdop = stof(GXGGA[8]);}
     if (GXGGA[9]!=""){this->gga.altitude = stof(GXGGA[9]);}
     if (GXGGA[10]!=""){this->gga.a_units = GXGGA[10][0];}

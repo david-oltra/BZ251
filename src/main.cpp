@@ -109,20 +109,20 @@ void coreBThread(void *arg)
 {
     ESP_LOGW(TAG, "Starting CORE B");
 
-    // uint8_t* data = (uint8_t*) malloc(1024+1);
+    uint8_t* data = (uint8_t*) malloc(1024+1);
 
     for(;;){
-    //     // bz251_get_value(CFG_SIGNAL_GPS_ENA);
-    //     const int rxBytes = uart_read_bytes(UART_NUM, data, 1024,pdMS_TO_TICKS(100));
-    //     if (rxBytes > 0) {
-    //         data[rxBytes] = 0;
-    //         ESP_LOGI(TAG, "Read %d bytes: \n%s", rxBytes, data);
-    //         // ESP_LOG_BUFFER_HEX(TAG, data, rxBytes);
-    //     }
-    //     if (data[0] == 0xB5 && data[2] == 0x06){
-    //         ESP_LOGE(TAG, "%x %x %x %x",data[0], data[1], data[2], data[3]);
-    //         ESP_LOG_BUFFER_HEX(TAG, data, data[4]+6);
-    //     }
+        // bz251_get_value(CFG_SIGNAL_GPS_ENA);
+        const int rxBytes = uart_read_bytes(UART_NUM, data, 1024,pdMS_TO_TICKS(100));
+        if (rxBytes > 0) {
+            data[rxBytes] = 0;
+            ESP_LOGI(TAG, "Read %d bytes: \n%s", rxBytes, data);
+            // ESP_LOG_BUFFER_HEX(TAG, data, rxBytes);
+        }
+        if (data[0] == 0xB5 && data[2] == 0x06){
+            ESP_LOGE(TAG, "%x %x %x %x",data[0], data[1], data[2], data[3]);
+            ESP_LOG_BUFFER_HEX(TAG, data, data[4]+6);
+        }
     
         vTaskDelay(pdMS_TO_TICKS(1000));
     }

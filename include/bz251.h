@@ -1,6 +1,7 @@
 #ifndef BZ251_H__
 #define BZ251_H__
 
+#include <bz251_defs.h>
 #include <stdint.h>
 #include <driver/gpio.h>
 #include <driver/uart.h>
@@ -8,10 +9,10 @@
 
 typedef struct {
     uart_port_t uartNum;    /* UART port number, can be UART_NUM_0 ~ (UART_NUM_MAX -1) */
-    uint8_t hasGps;         /* 1 Enable - 0 Disable */
-    uint8_t hasGlonass;     /* 1 Enable - 0 Disable */
-    uint8_t hasGalileo;     /* 1 Enable - 0 Disable */
-    uint8_t hasBeidou;      /* 1 Enable - 0 Disable */
+    uint8_t hasGps = CFG_SIGNAL_GPS_ENA_DEFAULT;         /* 1 Enable - 0 Disable */
+    uint8_t hasGlonass = CFG_SIGNAL_GLO_ENA_DEFAULT;     /* 1 Enable - 0 Disable */
+    uint8_t hasGalileo = CFG_SIGNAL_GAL_ENA_DEFAULT;     /* 1 Enable - 0 Disable */
+    uint8_t hasBeidou = CFG_SIGNAL_BDS_ENA_DEFAULT;      /* 1 Enable - 0 Disable */
     uint8_t dynmodel;       /** 0 Portable
                                 2 Stationary
                                 3 Pedestrian
