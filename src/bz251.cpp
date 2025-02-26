@@ -243,7 +243,7 @@ uint8_t Bz251::addTimeZone(uint8_t &hour, uint8_t &day, uint8_t &month, uint8_t 
     }
     return 0;
 }
-/* Update time whith timezone */
+/* Update time with timezone */
 
 uint8_t Bz251::sync(uint32_t &rawTime, uint32_t &rawDate)
 {

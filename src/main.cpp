@@ -8,6 +8,7 @@
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/timers.h>
+#include <freertos/semphr.h>
 #include <iostream>
 #include <esp_log.h>
 #include <driver/gpio.h>
@@ -20,8 +21,8 @@
 extern "C" void app_main();
 
 static TaskHandle_t core_A = NULL;
-static TaskHandle_t core_B = NULL;
 static TaskHandle_t bz251_task = NULL;
+SemaphoreHandle_t bz251_mutex;
 
 Bz251 bz251;
 Bz251Data bz251Data;
@@ -74,7 +75,11 @@ void bz251Task(void *arg)
 {
     for(;;)
     {
-        bz251.read();
+        if(xSemaphoreTake(bz251_mutex,pdMS_TO_TICKS(100)))
+        {
+            bz251.read();
+            xSemaphoreGive(bz251_mutex);
+        }
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
@@ -85,44 +90,22 @@ void coreAThread(void *arg)
 
     for(;;)
     {
-        bz251.getData(bz251Data);
-        // bz251.getPosition(bz251Data.latitude, bz251Data.longitude);
-        // bz251.getAltitude(bz251Data.altitude);
-        // bz251.getDate(bz251Data.day, bz251Data.month, bz251Data.year);
-        // bz251.getTime(bz251Data.hour, bz251Data.minute);
-
-        ESP_LOGI(TAG, "\nlatitude\t%.8f\nlongitude\t%.8f\naltitude\t%.2f\nspeed\t%.8f\nsats\t%u\ndate\t%u/%u/%u\ntime\t%u:%u",
-                        bz251Data.latitude,
-                        bz251Data.longitude,
-                        bz251Data.altitude,
-                        bz251Data.speedKmh,
-                        bz251Data.satellites,
-                        bz251Data.day,bz251Data.month, bz251Data.year,
-                        bz251Data.hour, bz251Data.minute
-                    );
-    
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-}
-
-void coreBThread(void *arg)
-{
-    ESP_LOGW(TAG, "Starting CORE B");
-
-    // uint8_t* data = (uint8_t*) malloc(1024+1);
-
-    for(;;){
-        // bz251_get_value(CFG_SIGNAL_GPS_ENA);
-        // const int rxBytes = uart_read_bytes(UART_NUM, data, 1024,pdMS_TO_TICKS(100));
-        // if (rxBytes > 0) {
-        //     data[rxBytes] = 0;
-        //     ESP_LOGI(TAG, "Read %d bytes: \n%s", rxBytes, data);
-        //     // ESP_LOG_BUFFER_HEX(TAG, data, rxBytes);
-        // }
-        // if (data[0] == 0xB5 && data[2] == 0x06){
-        //     ESP_LOGE(TAG, "%x %x %x %x",data[0], data[1], data[2], data[3]);
-        //     ESP_LOG_BUFFER_HEX(TAG, data, data[4]+6);
-        // }
+        if(xSemaphoreTake(bz251_mutex,pdMS_TO_TICKS(100)))
+        {
+            bz251.getData(bz251Data);
+           
+            ESP_LOGI(TAG, "\nlatitude\t%.8f\nlongitude\t%.8f\naltitude\t%.2f\nspeed\t%.8f\nsats\t%u\ndate\t%u/%u/%u\ntime\t%u:%u",
+                            bz251Data.latitude,
+                            bz251Data.longitude,
+                            bz251Data.altitude,
+                            bz251Data.speedKmh,
+                            bz251Data.satellites,
+                            bz251Data.day,bz251Data.month, bz251Data.year,
+                            bz251Data.hour, bz251Data.minute
+                        );
+            
+            xSemaphoreGive(bz251_mutex);
+        }
     
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
@@ -139,7 +122,8 @@ void app_main(void)
     if (bz251_init() == ESP_OK) {ESP_LOGI(TAG,"Config bz251 completed");}
     else {ESP_LOGE(TAG,"Config bz251 failed");}
 
-    xTaskCreatePinnedToCore(bz251Task, "bz251_task", 4096, NULL, 1, &bz251_task, 1);
-    xTaskCreatePinnedToCore(coreBThread, "core_B", 4096, NULL, 2, &core_B, 1);    
+    bz251_mutex = xSemaphoreCreateMutex();
+
+    xTaskCreatePinnedToCore(bz251Task, "bz251_task", 4096, NULL, 1, &bz251_task, 1); 
     xTaskCreatePinnedToCore(coreAThread, "core_A", 4096, NULL, 3, &core_A, 0);
 }
